@@ -69,7 +69,9 @@ def expm(A):
 
 #%%
 if __name__ == "__main__":
-    A = 10*torch.randn(10, 3, 3).to(torch.double)
-    A.requires_grad = True
-    expmA_pytorch = expm(A)
-    grad = torch.autograd.grad(expmA_pytorch.sum(), A)
+    A = torch.randint(0, 10, (2, 3, 3)).to(torch.double).cuda()
+    expmA = expm(A)
+    print(A)
+    print(expmA)
+    print(A.matmul(A))
+    
