@@ -15,6 +15,12 @@ __global__ void pade13(const double* A, double* U, double* V, int* n_squaring, c
     double *A6   = (double*)&norm[N + 3*N*matsize];
     double *temp = (double*)&norm[N + 4*N*matsize];
     
+    // Pade constants
+    double beta[14] = {64764752532480000., 32382376266240000., 7771770303897600.,
+                       1187353796428800., 129060195264000., 10559470521600.,
+                       670442572800., 33522128640., 1323241920., 40840800.,
+                       960960., 16380., 182., 1.};
+    
     // Get threads index
     int b = blockIdx.x*blockDim.x+threadIdx.x;
     int i = blockIdx.y*blockDim.y+threadIdx.y;
@@ -45,7 +51,7 @@ __global__ void pade13(const double* A, double* U, double* V, int* n_squaring, c
         for(int k = 0; k < row; k++){
             temp[idx] += A[b * matsize + i * row + k] * A[b * matsize + k * row + j];
         }
-        A2[idx] = tmpsum[idx];
+        A2[idx] = temp[idx];
         __syncthreads();
         
         // Compute A4
@@ -53,7 +59,7 @@ __global__ void pade13(const double* A, double* U, double* V, int* n_squaring, c
         for(int k = 0; k < row; k++){
             temp[idx] += A2[b * matsize + i * row + k] * A2[b * matsize + k * row + j];
         }
-        A4[idx] = tmpsum[idx];
+        A4[idx] = temp[idx];
         __syncthreads();
         
         // Compute A6
@@ -61,7 +67,7 @@ __global__ void pade13(const double* A, double* U, double* V, int* n_squaring, c
         for(int k = 0; k < row; k++){
             temp[idx] += A4[b * matsize + i * row + k] * A2[b * matsize + k * row + j];
         }
-        A6[idx] = tmpsum[idx];
+        A6[idx] = temp[idx];
         __syncthreads();
         
         // Compute U

@@ -4,19 +4,24 @@
 #include <algorithm>
 #include "cblas.h"
 #include <lapacke.h>
+#include <iostream>
+#include <iomanip>
 
 using namespace std;
 
-void printmat(const double* mat, const int row){
+void printmat(const float* mat, const int row){
+    cout << "[";
     for(int i = 0; i < row; i++){
+        if(i != 0){cout << " ";}
         for(int j = 0; j < row; j++){
-            cout << mat[i*row + j] << ",";
+            cout << std::fixed << std::setprecision(3) << mat[i*row + j] << ",";
         }
+        if(i == row-1){cout << "]";}
         cout << endl;
     }
 }
 
-float fronorm(const double* mat, const int matsize){
+float fronorm(const float* mat, const int matsize){
     float norm = 0;
     for(int i = 0; i < matsize; i++){
         norm += pow(abs(mat[i]), 2.0);
@@ -24,15 +29,15 @@ float fronorm(const double* mat, const int matsize){
     return sqrt(norm);
 }
 
-void pade13_forward(const double* mat, double* U, double* V, const int matsize, const int row){
+void pade13_forward(const float* mat, float* U, float* V, const int matsize, const int row){
     // Pade constants
-    std::vector<double> beta;
+    std::vector<float> beta;
     beta = {64764752532480000., 32382376266240000., 7771770303897600.,
             1187353796428800., 129060195264000., 10559470521600.,
             670442572800., 33522128640., 1323241920., 40840800.,
             960960., 16380., 182., 1.};
 
-    double iden[matsize], mat2[matsize], mat4[matsize], mat6[matsize];
+    float iden[matsize], mat2[matsize], mat4[matsize], mat6[matsize], temp[matsize];
     // Identity matrix
     for(int i = 0; i < row; i++){
         for(int j = 0; j < row; j++){
@@ -45,58 +50,48 @@ void pade13_forward(const double* mat, double* U, double* V, const int matsize, 
     }
 
     // Calculate mat^2 = mat*mat
-    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, row, row, row, 1.0,
+    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, row, row, row, 1.0,
                 mat, row, mat, row, 0.0, mat2, row);
     // Calculate mat^4 = mat^2 * mat^2
-    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, row, row, row, 1.0,
+    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, row, row, row, 1.0,
                 mat2, row, mat2, row, 0.0, mat4, row);
     // Calculate mat^6 = mat^2 * mat^4
-    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, row, row, row, 1.0,
+    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, row, row, row, 1.0,
                 mat2, row, mat4, row, 0.0, mat6, row);
     
     // Calculate U
-    double temp[matsize];
-    for(int i = 0; i < row; i++){
-        for(int j = 0; j < row; j++){
-            temp[i*row+j] = beta[13]*mat6[i*row+j]*beta[11]*mat4[i*row+j]+beta[9]*mat2[i*row+j];
-        }
+    for(int i = 0; i < matsize; i++){
+        temp[i] = beta[13]*mat6[i]*beta[11]*mat4[i]+beta[9]*mat2[i];
     }
-    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, row, row, row, 1.0,
+    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, row, row, row, 1.0,
                 mat6, row, temp, row, 0.0, temp, row);
-    for(int i = 0; i < row; i++){
-        for(int j = 0; j < row; j++){
-            temp[i*row+j] += beta[7]*mat6[row*i+j] + beta[5]*mat4[row*i+j] + beta[3]*mat2[row*i+j] + beta[1]*iden[row*i+j];
-        }
+    for(int i = 0; i < matsize; i++){
+        temp[i] += beta[7]*mat6[i] + beta[5]*mat4[i] + beta[3]*mat2[i] + beta[1]*iden[i];
     }
-    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, row, row, row, 1.0,
+    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, row, row, row, 1.0,
                 mat, row, temp, row, 0.0, U, row);
     
     // Calculate V
-    for(int i = 0; i < row; i++){
-        for(int j = 0; j < row; j++){
-            temp[i*row+j] = beta[12]*mat6[row*i+j] + beta[10]*mat4[row*i+j] + beta[8]*mat2[row*i+j];
-        }
+    for(int i = 0; i < matsize; i++){
+        temp[i] = beta[12]*mat6[i] + beta[10]*mat4[i] + beta[8]*mat2[i];        
     }
-    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, row, row, row, 1.0,
+    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, row, row, row, 1.0,
                 mat6, row, temp, row, 0.0, temp, row);
-    for(int i = 0; i < row; i++){
-        for(int j = 0; j < row; j++){
-            V[i*row+j] = temp[i*row+j] + beta[6]*mat6[i*row+j] + beta[4]*mat4[i*row+j] + beta[2]*mat2[i*row+j] + beta[0]*iden[i*row+j];
-        }
+    for(int i = 0; i < matsize; i++){
+        V[i] = temp[i] + beta[6]*mat6[i] + beta[4]*mat4[i] + beta[2]*mat2[i] + beta[0]*iden[i];
     }
     return;
 }
 
-void pade13_backward(const double* mat, double* U1, double* U2, double* V1,
-                        double* V2, const int matsize, const int row){
+void pade13_backward(const float* mat, float* dU, float* dV, const int matsize, const int row){
     // Pade constants
-    std::vector<double> beta;
+    std::vector<float> beta;
     beta = {64764752532480000. * 0, 32382376266240000. * 1, 7771770303897600. * 2,
             1187353796428800. * 3, 129060195264000. * 4, 10559470521600. * 5,
             670442572800. * 6, 33522128640. * 7, 1323241920. * 8, 40840800. * 9,
             960960. * 10, 16380. * 11, 182. * 12, 1. * 13};
 
-    double iden[matsize], mat2[matsize], mat4[matsize], mat6[matsize];
+    float iden[matsize], mat2[matsize], mat4[matsize], mat6[matsize], temp[matsize];
     // Identity matrix
     for(int i = 0; i < row; i++){
         for(int j = 0; j < row; j++){
@@ -109,16 +104,36 @@ void pade13_backward(const double* mat, double* U1, double* U2, double* V1,
     }
     
     // Calculate mat^2 = mat*mat
-    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, row, row, row, 1.0,
+    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, row, row, row, 1.0,
                 mat, row, mat, row, 0.0, mat2, row);
     // Calculate mat^4 = mat^2 * mat^2
-    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, row, row, row, 1.0,
+    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, row, row, row, 1.0,
                 mat2, row, mat2, row, 0.0, mat4, row);
     // Calculate mat^6 = mat^2 * mat^4
-    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, row, row, row, 1.0,
+    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, row, row, row, 1.0,
                 mat2, row, mat4, row, 0.0, mat6, row);
     
+    // Calculate dU
+    for(int i = 0; i < matsize; i++){
+        temp[i] = beta[13]*mat6[i] + beta[11]*mat4[i] + beta[9]*mat2[i] + beta[7]*iden[i];
+    }
+    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, row, row, row, 1.0,
+                mat6, row, temp, row, 0.0, temp, row);
+    for(int i = 0; i < matsize; i++){
+        dU[i] = temp[i] + beta[5]*mat4[i] + beta[3]*mat2[i] + beta[1]*iden[i];
+    }
     
+    // Calculate dV
+    for(int i = 0; i < matsize; i++){
+        temp[i] = beta[12]*mat4[i] + beta[10]*mat2[i];
+    }
+    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, row, row, row, 1.0,
+                mat6, row, temp, row, 0.0, temp, row);
+    for(int i = 0; i < matsize; i++){
+        temp[i] += beta[8]*mat6[i] + beta[6]*mat4[i] + beta[4]*mat2[i] + beta[2]*iden[i];
+    }
+    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, row, row, row, 1.0,
+                mat, row, temp, row, 0.0, dV, row);
     
     return;                    
 }
@@ -131,14 +146,14 @@ at::Tensor expm_forward(at::Tensor input){
     const auto matsize = row*col;
 
     // Allocate output
-    auto A = input.data<double>();
+    auto A = input.data<float>();
     auto output = at::zeros_like(input);
-    auto expmA = output.data<double>();
+    auto expmA = output.data<float>();
     
     // For each matrix
     for(int i = 0; i < N; i++){
         // Copy to local matrix
-        double mat[matsize]; 
+        float mat[matsize]; 
         for(int j = 0; j < matsize; j++){
             mat[j] = A[matsize*i + j];
         }
@@ -151,11 +166,11 @@ at::Tensor expm_forward(at::Tensor input){
         }
 
         // Calculate pade13 approximation matrices
-        double U[matsize], V[matsize];
+        float U[matsize], V[matsize];
         pade13_forward(mat, U, V, matsize, row);
         
         // Calculate nominator and denominator
-        double P[matsize], Q[matsize];
+        float P[matsize], Q[matsize];
         for(int j = 0; j < matsize; j++){
             P[j] = U[j] + V[j];
             Q[j] = -U[j] + V[j];
@@ -163,13 +178,13 @@ at::Tensor expm_forward(at::Tensor input){
         
         // Solve the system Q*R = P (result is saved in P, LU factors stored in Q)
         int *ipiv; //  pivot indices that define the permutation matrix
-        LAPACKE_dgesv(LAPACK_ROW_MAJOR, row, row, Q, row, ipiv, P, row);
+        LAPACKE_sgesv(LAPACK_ROW_MAJOR, row, row, Q, row, ipiv, P, row);
         
         // Unsquare result
-        double temp[matsize];
+        float temp[matsize];
         for(int s = 0; s < n_squaring; s++){
-            cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, row, row, row, 1.0,
-                P, row, P, row, 0.0, temp, row);
+            cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, row, row, row, 1.0,
+                        P, row, P, row, 0.0, temp, row);
             for(int j = 0; j < matsize; j++){
                 P[j] = temp[j];
             }
@@ -191,13 +206,13 @@ at::Tensor expm_backward(at::Tensor input){
     const auto matsize = row*col;
     
     // Allocate output
-    auto A = input.data<double>();
+    auto A = input.data<float>();
     auto output = at::zeros_like(input);
-    auto expmA = output.data<double>();
+    auto expmA = output.data<float>();
     
     // For each matrix
     for(int i = 0; i < N; i++){
-        double mat[matsize];
+        float mat[matsize];
         for(int j = 0; j < matsize; j++){
             mat[j] = A[matsize*i + j];
         }
@@ -210,12 +225,12 @@ at::Tensor expm_backward(at::Tensor input){
         }
         
         // Calculate pade13 approximation matrices and their derivatives
-        double U[matsize], V[matsize], dU[matsize], dV[matsize];
+        float U[matsize], V[matsize], dU[matsize], dV[matsize];
         pade13_forward(mat, U, V, matsize, row);
         pade13_backward(mat, dU, dV, matsize, row);
         
         // Calculate nominator and denominator
-        double P[matsize], Q[matsize], dP[matsize], dQ[matsize];
+        float P[matsize], Q[matsize], dP[matsize], dQ[matsize];
         for(int j = 0; j < matsize; j++){
             P[j] = U[j] + V[j];
             Q[j] = -U[j] + V[j];
@@ -225,28 +240,28 @@ at::Tensor expm_backward(at::Tensor input){
         
         // Solve the system Q*R = P (result is saved in P, LU factors stored in Q)
         int *ipiv; //  pivot indices that define the permutation matrix
-        LAPACKE_dgesv(LAPACK_ROW_MAJOR, row, row, Q, row, ipiv, P, row);
+        LAPACKE_sgesv(LAPACK_ROW_MAJOR, row, row, Q, row, ipiv, P, row);
         
         // Calculate dP - dQ * R (result stored in dP)
-        cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, row, row, row, -1.0,
-            dQ, row, P, row, 1.0, dP, row);
+        cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, row, row, row, -1.0,
+                    dQ, row, P, row, 1.0, dP, row);
         
         // Solve system Q*R = dP
-        LAPACKE_dgesv(LAPACK_ROW_MAJOR, row, row, Q, row, ipiv, dP, row);
+        LAPACKE_sgesv(LAPACK_ROW_MAJOR, row, row, Q, row, ipiv, dP, row);
         
         // Unsquare result
-        double temp[matsize];            
+        float temp[matsize];            
         for(int s = 0; s < n_squaring; s++){
-            cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, row, row, row, 1.0,
-                dP, row, dP, 0.0, temp, row);
+            cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, row, row, row, 1.0,
+                        dP, row, dP, row, 0.0, temp, row);
             for(int j = 0; j < matsize; j++){
-                dP[j] = dP[j];
+                dP[j] = temp[j];
             }
         }
         
         // Save result
         for(int j = 0; j < matsize; j++){
-            expm[matsize*i + j] = dP[j];
+            expmA[matsize*i + j] = dP[j];
         }
     }
     return output;
@@ -254,4 +269,5 @@ at::Tensor expm_backward(at::Tensor input){
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.def("forward", &expm_forward, "expm forward");
+    m.def("backward", &expm_backward, "expm backward");
 }
