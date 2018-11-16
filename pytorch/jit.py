@@ -19,9 +19,10 @@ with warnings.catch_warnings(record=True): # get rid of ABI-incompatible warning
                            verbose=True)
     
     expm_gpu_module = load(name = 'expm_cuda',
-                           sources = ['expm_cuda.cpp', 'expm_cuda_kernel.cu'], 
-                           verbose=False,
-                           extra_include_paths = ['/usr/local/cuda-8.0/lib64/'])
+                           sources = ['expm_cuda.cpp', 'expm_cuda_kernel.cu', 'Utilities.cu'],
+                           
+                           extra_cuda_cflags = ['-lmagma', '-lmagmablas', '-lmagma'],
+                           verbose=False)
 
 #%%
 class _ExpmOperatorAnalytic(torch.autograd.Function):
@@ -83,25 +84,12 @@ class _ExpmOperatorNumeric(torch.autograd.Function):
         return torch.cat(gradient_outer, dim=1) # [n_batch, n, n]
 
 #%%
-def expm(A, analytic=True):
+def expm(A, analytic=False):
     return _ExpmOperatorAnalytic.apply(A) if analytic else _ExpmOperatorNumeric.apply(A)
 
 #%%
 if __name__ == "__main__":
-    #A = torch.randn(1, 3, 3).to(torch.double)
-    A = torch.tensor([[0.50000, 0.60000], [0.800000,0.200000]], dtype=torch.float32)[None]
-    A.requires_grad = True
+    A = torch.randn(2, 3, 3)
     print(A)
-    expmA1 = expm(A, True)
-    expmA2 = expm(A, False)
-    grad1 = torch.autograd.grad(expmA1.sum(), A)
-    grad2 = torch.autograd.grad(expmA2.sum(), A)
-    print(A)
-    print(expmA1)
-    print(grad1)
-    print(grad2)
-
-#    import numpy as np
-#    from scipy.linalg import expm as expm_scipy
-#    expmA2 = np.stack([expm_scipy(a.detach().numpy()) for a in A])
-#    print('diff:', np.linalg.norm(expmA1.detach().numpy() - expmA2))    
+    print(expm(A.cuda()))
+    

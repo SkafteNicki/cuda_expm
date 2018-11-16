@@ -113,28 +113,7 @@ void pade13_backward(const float* mat, float* dU, float* dV, const int matsize, 
     cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, row, row, row, 1.0,
                 mat2, row, mat4, row, 0.0, mat6, row);
     
-    // Calculate dU
-    for(int i = 0; i < matsize; i++){
-        temp[i] = beta[13]*mat6[i] + beta[11]*mat4[i] + beta[9]*mat2[i] + beta[7]*iden[i];
-    }
-    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, row, row, row, 1.0,
-                mat6, row, temp, row, 0.0, temp, row);
-    for(int i = 0; i < matsize; i++){
-        dU[i] = temp[i] + beta[5]*mat4[i] + beta[3]*mat2[i] + beta[1]*iden[i];
-    }
-    
-    // Calculate dV
-    for(int i = 0; i < matsize; i++){
-        temp[i] = beta[12]*mat4[i] + beta[10]*mat2[i];
-    }
-    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, row, row, row, 1.0,
-                mat6, row, temp, row, 0.0, temp, row);
-    for(int i = 0; i < matsize; i++){
-        temp[i] += beta[8]*mat6[i] + beta[6]*mat4[i] + beta[4]*mat2[i] + beta[2]*iden[i];
-    }
-    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, row, row, row, 1.0,
-                mat, row, temp, row, 0.0, dV, row);
-    
+
     return;                    
 }
 
