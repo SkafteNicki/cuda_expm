@@ -89,7 +89,22 @@ def expm(A, analytic=False):
 
 #%%
 if __name__ == "__main__":
-    A = torch.randn(2, 3, 3)
-    print(A)
+    A = torch.randn(1, 3, 3)
+    print(expm(A))
     print(expm(A.cuda()))
-    
+#    
+#    b = [1., .5000000000, .1200000000, 0.1833333333e-1, 0.1992753623e-2, 
+#         0.1630434783e-3, 0.1035196687e-4, 5.175983437e-7, 
+#         2.043151357e-8, 6.306022706e-10, 1.483770048e-11, 
+#         2.529153492e-13, 2.810170546e-15, 1.544049751e-17]
+#    
+#    ident = torch.eye(A.shape[1], dtype=A.dtype).to(A.device)
+#    A2 = torch.matmul(A,A)
+#    A4 = torch.matmul(A2,A2)
+#    A6 = torch.matmul(A4,A2)
+#    U = torch.matmul(A, torch.matmul(A6, b[13]*A6 + b[11]*A4 + b[9]*A2) + b[7]*A6 + b[5]*A4 + b[3]*A2 + b[1]*ident)
+#    V = torch.matmul(A6, b[12]*A6 + b[10]*A4 + b[8]*A2) + b[6]*A6 + b[4]*A4 + b[2]*A2 + b[0]*ident
+#    print(V)
+#    
+#    
+#    
